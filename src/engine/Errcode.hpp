@@ -21,8 +21,8 @@ class Errcode:
 public:
     typedef bbt::errcode::Errcode<emErr> TBase;
 
-    Errcode(const std::string& msg, emErr err_type = emErr::Failed):TBase(msg, err_type) {}
-    ~Errcode();
+    explicit Errcode(const std::string& msg, emErr err_type = emErr::Failed):TBase(msg, err_type) {}
+    virtual ~Errcode() {}
 
     const std::string& What() { GetMsg(); }
 };

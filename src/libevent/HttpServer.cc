@@ -96,7 +96,13 @@ ErrOpt HttpServer::SetHandler(const std::string& path, ReqHandler cb)
 void HttpServer::__Handler(evhttp_request* req)
 {
     auto uri = evhttp_request_get_evhttp_uri(req);
-    printf("%s\n", evhttp_uri_get_path(uri));
+    std::string uri_path = evhttp_uri_get_path(uri);
+    printf("%s\n", uri_path.c_str());
+    auto it = m_handles.find(uri_path);
+    if (it != m_handles.end()) {
+        it->second(req, this);
+    }
+    //TODO 走默认处理
 }
 
 ErrOpt HttpServer::__AddHandler(const std::string& uri)
