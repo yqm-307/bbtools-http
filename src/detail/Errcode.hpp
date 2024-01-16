@@ -1,3 +1,4 @@
+#pragma once
 #include <string>
 #include <bbt/errcode/Errcode.hpp>
 #include <optional>
@@ -24,7 +25,7 @@ public:
     explicit Errcode(const std::string& msg, emErr err_type = emErr::Failed):TBase(msg, err_type) {}
     virtual ~Errcode() {}
 
-    const std::string& What() { GetMsg(); }
+    const std::string& What() { return GetMsg(); }
 };
 
 } // namespace bbt::http

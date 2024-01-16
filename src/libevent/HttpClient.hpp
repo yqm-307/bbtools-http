@@ -1,33 +1,42 @@
 #pragma once
 #include <thread>
+#include <map>
 #include <atomic>
 #include <event2/event.h>
 #include <memory>
-#include "engine/IHttpClient.hpp"
+#include <bbt/buffer/Buffer.hpp>
+#include "detail/Define.hpp"
 
 namespace bbt::http::ev
 {
 
 class HttpClient;
 
-struct EventTimeOutPrvData
+typedef std::function<void(CURL* req, buffer::Buffer& body)> RespHandler;
+
+struct RequestData
 {
-    std::weak_ptr<HttpClient> m_wptr;
+    RespHandler m_response_callback;
+    CURL*       m_curl;
+    curl_slist* m_list;
+    RequestId   m_id;
 };
 
-#define UPDATE_TIME_MS 50
-
-
-class HttpClient:
-    public IHttpClient,
-    public std::enable_shared_from_this<HttpClient>
+// 请求携带的私有数据
+struct RequestPrivData
 {
+    HttpClient* m_pthis{NULL};
+    uint64_t    m_request_id{0};
+};
+
+class HttpClient
+{
+    friend size_t CurlWrite(void* buf, size_t size, size_t nmemb, void* arg);
 public:
     HttpClient(event_base* io_ctx);
     ~HttpClient();
 
-    virtual ErrOpt Request(const char* url, const char* body, HttpHandler do_resp_handler) override;
-    virtual ErrOpt Request(const char* ip, short port, const char* body, HttpHandler do_resp_handler) override;
+    ErrOpt PostReq(const char* url, buffer::Buffer& body, RespHandler cb);
 
     void RunOnce();
     void TimeTick();
@@ -39,11 +48,12 @@ protected:
 private:
     event_base*                 m_io_ctx{NULL};
     event*                      m_timer{NULL};
-    EventTimeOutPrvData*        m_timer_prvdata{NULL};
     CURLM*                      m_multi_conn{NULL};
     volatile bool               m_running{true};
 
     std::atomic_int             m_running_handles{0};
+    std::map<RequestId, std::shared_ptr<RequestData>> 
+                                m_request_wait_map; 
 };
 
 

@@ -4,45 +4,35 @@
 #include <event2/event.h>
 #include <event2/http.h>
 #include <event2/buffer.h>
-#include "engine/IHttpServer.hpp"
+#include <bbt/buffer/Buffer.hpp>
+#include "detail/Define.hpp"
 
 
 namespace bbt::http::ev
 {
 
-class HttpServer;
-
-struct EventHttpRequestPrvData
-{
-    std::weak_ptr<HttpServer> m_wptr;
-};
-
-class HttpServer:
-    public IHttpServer,
-    public std::enable_shared_from_this<HttpServer>
+class HttpServer
 {
     friend void EventHttpRequest(evhttp_request* req, void* arg);
 public:
-    typedef std::function<void(evhttp_request*, HttpServer*)> ReqHandler;
+    typedef std::function<std::tuple<int, std::string, buffer::Buffer>(buffer::Buffer&, HttpServer*)> ReqHandler;
 
     HttpServer(event_base* ev);
     ~HttpServer();
 
-    ErrOpt Listen(const std::string& ip, short port);
+    ErrOpt BindListenFd(const std::string& ip, short port);
     ErrOpt SetHandler(const std::string& path, ReqHandler cb);
 protected:
-    ErrOpt __Listen();
+    ErrOpt __BindAddress(const std::string& ip, short port);
     ErrOpt __AddHandler(const std::string& uri);
     ErrOpt __DelHandler(const std::string& uri);
 
-    void __Handler(evhttp_request* req); 
+    ErrOpt __Handler(evhttp_request* req); 
 private:
-    event_base*         m_io_ctx{NULL};
-    event*              m_req_handler{NULL};
-    evhttp*             m_http_server{NULL};
-    evhttp_bound_socket* m_http_socket{NULL};
+    event_base*             m_io_ctx{NULL};
+    evhttp*                 m_http_server{NULL};
+    bool                    m_is_running{false};
 
-    EventHttpRequestPrvData* m_prvdata{NULL};
     std::unordered_map<std::string, ReqHandler> m_handles;
 };
 
