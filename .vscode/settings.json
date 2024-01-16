@@ -60,5 +60,6 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "optional": "cpp"
-    }
+    },
+    "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }

@@ -11,7 +11,7 @@ int main()
 
     HttpServer server{base};
 
-    server.SetHandler("/hello", [](evhttp_request* req, HttpServer* server){
+    auto err1 = server.SetHandler("/hello", [](evhttp_request* req, HttpServer* server){
         evbuffer* req_buf = evhttp_request_get_input_buffer(req);
 
         while (evbuffer_get_length(req_buf) > 0)
@@ -28,7 +28,15 @@ int main()
         evhttp_send_reply(req, 200, "OK", buf);
     });
 
-    server.Listen("", 7777);
+    if (err1 != std::nullopt) {
+        printf("[error] %s\n", err1.value().What().c_str());
+    }
+
+    auto err2 = server.Listen("127.0.0.1", 7777);
+    if (err2 != std::nullopt) {
+        printf("[error] %s\n", err2.value().What().c_str());
+    }
 
     event_base_dispatch(base);
+    event_base_loop(base, EVLOOP_NO_EXIT_ON_EMPTY);
 }

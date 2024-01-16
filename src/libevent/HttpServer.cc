@@ -1,6 +1,7 @@
+#include <cstring>
+
 #include "./HttpServer.hpp"
 
-#include <cstring>
 
 namespace bbt::http::ev
 {
@@ -32,6 +33,9 @@ void EventHttpRequest(evhttp_request* req, void* arg)
 HttpServer::HttpServer(event_base* ev)
     :m_io_ctx(ev)
 {
+    m_http_server = evhttp_new(m_io_ctx);
+    m_prvdata = new EventHttpRequestPrvData();
+    m_prvdata->m_wptr = weak_from_this();
 }
 
 HttpServer::~HttpServer()
@@ -42,7 +46,8 @@ HttpServer::~HttpServer()
 
 ErrOpt HttpServer::__Listen()
 {
-    evhttp* httpd = NULL;
+    // evhttp* httpd = NULL;
+    return std::nullopt;
 }
 
 ErrOpt HttpServer::Listen(const std::string& ip, short port)
@@ -54,13 +59,14 @@ ErrOpt HttpServer::Listen(const std::string& ip, short port)
     void* inaddr;
     const char* addr;
     int got_port = -1;
-
-    m_http_server = evhttp_new(m_io_ctx);
+    printf("------\n");
     m_http_socket = evhttp_bind_socket_with_handle(m_http_server, ip.c_str(), port);
 
-    if (!m_http_socket) {
+    printf("------ %p\n", m_http_socket);
+    if (m_http_socket == nullptr) {
         return Errcode("evhttp_bind_socket_with_handle() failed!");
     }
+    printf("------\n");
 
     fd = evhttp_bound_socket_get_fd(m_http_socket);
     memset(&ss, 0, sizeof(ss));
@@ -68,15 +74,20 @@ ErrOpt HttpServer::Listen(const std::string& ip, short port)
     if (getsockname(fd, (sockaddr*)&ss, &socklen)) {
         return Errcode("getsockname() failed!");
     }
+    printf("------\n");
 
     got_port = ntohs(((sockaddr_in*)&ss)->sin_port);
     inaddr = &((sockaddr_in*)&ss)->sin_addr;
+    printf("------\n");
 
     addr = evutil_inet_ntop(ss.ss_family, inaddr, addr_buf, sizeof(addr_buf));
     if (addr == NULL) {
         return Errcode("evutil_inet_ntop() failed!");
     }
+    printf("------\n");
+    printf("listen to: %s:%d\n", addr, got_port);
 
+    printf("------\n");
     return std::nullopt;
 }
 
@@ -90,7 +101,7 @@ ErrOpt HttpServer::SetHandler(const std::string& path, ReqHandler cb)
 
     m_handles.insert(std::make_pair(path, cb));
 
-    return std::nullopt;
+    return __AddHandler(path);
 }
 
 void HttpServer::__Handler(evhttp_request* req)
@@ -107,12 +118,14 @@ void HttpServer::__Handler(evhttp_request* req)
 
 ErrOpt HttpServer::__AddHandler(const std::string& uri)
 {
-    int err = evhttp_set_cb(m_http_server, uri.c_str(), EventHttpRequest, NULL);
+    int err = evhttp_set_cb(m_http_server, uri.c_str(), EventHttpRequest, m_prvdata);
     if (err == -1) {
         return Errcode("cb already exist!");
     } else if (err == -2){
         return Errcode("evhttp_set_cb() failed!");
     }
+
+    return std::nullopt;
 }
 
 ErrOpt HttpServer::__DelHandler(const std::string& uri)
