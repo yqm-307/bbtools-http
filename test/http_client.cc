@@ -9,10 +9,10 @@ void TimeOut(evutil_socket_t fd, short event, void* arg)
     bbt::buffer::Buffer buf{"{\"key\":\"value\"}"};
     auto client = reinterpret_cast<HttpClient*>(arg);
     auto err = client->PostReq("http://10.0.2.15:7777/echo", buf, 
-    [](CURL* _, bbt::buffer::Buffer& buf)
+    [](CURL* _, bbt::buffer::Buffer& buf, CURLcode code)
     {
+        assert(code == CURLE_OK);
         std::string str{buf.Peek(), buf.DataSize()};
-        printf("recv resp: %s\n", str.c_str());
     });
     
     if (err != std::nullopt) {

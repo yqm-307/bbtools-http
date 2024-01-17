@@ -59,7 +59,8 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "optional": "cpp"
+        "optional": "cpp",
+        "list": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }

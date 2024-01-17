@@ -12,21 +12,23 @@ namespace bbt::http::ev
 
 class HttpClient;
 
-typedef std::function<void(CURL* req, buffer::Buffer& body)> RespHandler;
-
-struct RequestData
-{
-    RespHandler m_response_callback;
-    CURL*       m_curl;
-    curl_slist* m_list;
-    RequestId   m_id;
-};
+typedef std::function<void(CURL* req, buffer::Buffer& body, CURLcode)> RespHandler;
 
 // 请求携带的私有数据
 struct RequestPrivData
 {
     HttpClient* m_pthis{NULL};
     uint64_t    m_request_id{0};
+};
+
+struct RequestData
+{
+    RespHandler m_response_callback;
+    CURL*       m_curl;
+    curl_slist* m_req_headers;
+    RequestId   m_id;
+    buffer::Buffer m_response_buffer;
+    RequestPrivData m_write_priv_data;
 };
 
 class HttpClient
@@ -45,6 +47,11 @@ protected:
     void __OnTime50Ms();
     void __RegistTimerEvent();
     void __UnRegistTimerEvent();
+    void __CheckDone();
+    void __HandleResponse(RequestId id, CURLcode code);
+
+    void __UnRegistCURL(RequestId id);
+    void __RegistCURL(RequestId id, std::shared_ptr<RequestData> data_ptr);
 private:
     event_base*                 m_io_ctx{NULL};
     event*                      m_timer{NULL};
@@ -53,7 +60,8 @@ private:
 
     std::atomic_int             m_running_handles{0};
     std::map<RequestId, std::shared_ptr<RequestData>> 
-                                m_request_wait_map; 
+                                m_request_wait_map;
+    std::map<CURL*, RequestId>  m_curl_map;
 };
 
 

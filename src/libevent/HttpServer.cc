@@ -147,7 +147,7 @@ ErrOpt HttpServer::__Handler(evhttp_request* req)
     if (it != m_handles.end()) {
         bbt::buffer::Buffer header(Req2Header(req));
         bbt::buffer::Buffer buf(Req2Buffer(req));
-        BBT_FULL_LOG_INFO("[EventHttpRequest] %s\n", buf.Peek());
+        BBT_FULL_LOG_INFO("[EventHttpRequest] %s", buf.Peek());
         auto [code, status, resp] = it->second(buf, this);
 
         evbuffer* evbuf = evbuffer_new();
@@ -158,6 +158,8 @@ ErrOpt HttpServer::__Handler(evhttp_request* req)
 
         evhttp_send_reply(req, code, status.c_str(), evbuf);
         evbuffer_free(evbuf);
+        std::string str{resp.Peek(), resp.DataSize()};
+        BBT_FULL_LOG_INFO("send success: %s", str.c_str());
     } else {
         return Errcode(uri_path + " is not exist service(uri)");
     }
