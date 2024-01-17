@@ -145,27 +145,50 @@ ErrOpt HttpServer::__Handler(evhttp_request* req)
 
     auto it = m_handles.find(uri_path);
     if (it != m_handles.end()) {
+        auto [err, id] = __OnRequest(req);
+        if (err != std::nullopt) {
+            return err;
+        }
+
         bbt::buffer::Buffer header(Req2Header(req));
         bbt::buffer::Buffer buf(Req2Buffer(req));
         BBT_FULL_LOG_INFO("[EventHttpRequest] %s", buf.Peek());
-        auto [code, status, resp] = it->second(buf, this);
-
-        evbuffer* evbuf = evbuffer_new();
-        if (evbuffer_add(evbuf, resp.Peek(), resp.DataSize()) != 0) {
-            //TODO 错误处理
-            return Errcode("evbuffer_add() failed!");
-        }
-
-        evhttp_send_reply(req, code, status.c_str(), evbuf);
-        evbuffer_free(evbuf);
-        std::string str{resp.Peek(), resp.DataSize()};
-        BBT_FULL_LOG_INFO("send success: %s", str.c_str());
+        it->second(id, buf, this);
     } else {
         return Errcode(uri_path + " is not exist service(uri)");
     }
     //TODO 走默认处理
 
     return std::nullopt;
+}
+
+ErrOpt HttpServer::DoReply(RequestId id, int code, std::string status, const buffer::Buffer& buf)
+{
+    auto it = m_wait_requests.find(id);
+    assert(it != m_wait_requests.end());
+
+    evbuffer* evbuf = evbuffer_new();
+    if (evbuffer_add(evbuf, buf.Peek(), buf.DataSize()) != 0) {
+        return Errcode("evbuffer_add() failed!");
+    }
+
+    evhttp_send_reply(it->second, code, status.c_str(), evbuf);
+    evbuffer_free(evbuf);
+    m_wait_requests.erase(id);
+
+    std::string str{buf.Peek(), buf.DataSize()};
+    BBT_FULL_LOG_INFO("send success: %s", str.c_str());
+    return std::nullopt;
+}
+
+std::pair<ErrOpt, RequestId> HttpServer::__OnRequest(evhttp_request* req)
+{
+    RequestId id = GenerateRequestId();
+
+    auto [_, isok] = m_wait_requests.insert(std::make_pair(id, req));
+    assert(isok);
+
+    return {std::nullopt, id};
 }
 
 ErrOpt HttpServer::__AddHandler(const std::string& uri)

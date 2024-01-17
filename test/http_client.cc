@@ -13,6 +13,7 @@ void TimeOut(evutil_socket_t fd, short event, void* arg)
     {
         assert(code == CURLE_OK);
         std::string str{buf.Peek(), buf.DataSize()};
+        printf("echo reply: %s\n", str.c_str());
     });
     
     if (err != std::nullopt) {

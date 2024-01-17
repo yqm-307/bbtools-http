@@ -21,10 +21,14 @@ int main()
     HttpServer server{base};
 
     auto err1 = server.SetHandler("/hello", 
-    [](bbt::buffer::Buffer& buf, HttpServer* server) -> 
-        std::tuple<int, std::string, bbt::buffer::Buffer>
+    [](bbt::http::RequestId id, bbt::buffer::Buffer& buf, HttpServer* server)
     {
-        return {200, "ok", bbt::buffer::Buffer("{\"code\":200, \"status\":\"OK\", \"data\":\"hello world\"")};
+        auto err = server->DoReply(
+            id, 
+            200, 
+            "ok",
+            bbt::buffer::Buffer("{\"code\":200, \"status\":\"OK\", \"data\":\"hello world\""));
+        assert(err == std::nullopt);
     });
 
     if (err1 != std::nullopt) {
@@ -32,10 +36,14 @@ int main()
     }
 
     auto err2 = server.SetHandler("/service_110", 
-    [](bbt::buffer::Buffer& buf, HttpServer* server) ->
-        std::tuple<int, std::string, bbt::buffer::Buffer>
+    [](bbt::http::RequestId id, bbt::buffer::Buffer& buf, HttpServer* server)
     {
-        return {200, "ok", bbt::buffer::Buffer("{\"code\":200, \"status\":\"OK\", \"data\":\"call service 110!\"}")};
+        auto err = server->DoReply(
+            id,
+            200,
+            "ok",
+            bbt::buffer::Buffer("{\"code\":200, \"status\":\"OK\", \"data\":\"call service 110!\"}"));
+        assert(err == std::nullopt);
     });
 
     if (err2 != std::nullopt) {
@@ -43,10 +51,14 @@ int main()
     }
 
     auto err_echo = server.SetHandler("/echo", 
-    [](bbt::buffer::Buffer& buf, HttpServer* server) ->
-        std::tuple<int, std::string, bbt::buffer::Buffer>
+    [](bbt::http::RequestId id, bbt::buffer::Buffer& buf, HttpServer* server)
     {
-        return {200, "ok", buf};
+        auto err = server->DoReply(
+            id,
+            200,
+            "ok",
+            buf);
+        assert(err == std::nullopt);
     });
 
     if (err_echo != std::nullopt) {
