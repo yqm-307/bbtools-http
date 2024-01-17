@@ -5,7 +5,8 @@
 #include <event2/event.h>
 #include <memory>
 #include <bbt/buffer/Buffer.hpp>
-#include "detail/Define.hpp"
+
+#include <bbt/http/detail/Define.hpp>
 
 namespace bbt::http::ev
 {
