@@ -2,7 +2,7 @@
 #include <curl/curl.h>
 #include <functional>
 
-#include <bbt/uuid/EasyID.hpp>
+#include <bbt/base/uuid/EasyID.hpp>
 
 #include "./Errcode.hpp"
 

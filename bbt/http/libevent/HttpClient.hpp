@@ -4,7 +4,7 @@
 #include <atomic>
 #include <event2/event.h>
 #include <memory>
-#include <bbt/buffer/Buffer.hpp>
+#include <bbt/base/buffer/Buffer.hpp>
 
 #include <bbt/http/detail/Define.hpp>
 

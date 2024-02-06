@@ -8,12 +8,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g")
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib) 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 include_directories(
-    ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/bbt
 )
 
 file(GLOB_RECURSE SRCS 
-    ${PROJECT_SOURCE_DIR}/src/*.cc
-    ${PROJECT_SOURCE_DIR}/src/*.hpp
+    ${PROJECT_SOURCE_DIR}/bbt/*.cc
+    ${PROJECT_SOURCE_DIR}/bbt/*.hpp
 )
 
 add_library(ybbt_http SHARED ${SRCS})

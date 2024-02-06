@@ -1,6 +1,6 @@
-#include <bbt/buffer/Buffer.hpp>
-#include <bbt/config/GlobalConfig.hpp>
-#include "libevent/HttpServer.hpp"
+#include <bbt/base/buffer/Buffer.hpp>
+#include <bbt/base/config/GlobalConfig.hpp>
+#include "bbt/http/libevent/HttpServer.hpp"
 
 using namespace bbt::http::ev;
 

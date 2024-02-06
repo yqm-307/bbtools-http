@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include <bbt/errcode/Errcode.hpp>
+#include <bbt/base/errcode/Errcode.hpp>
 #include <optional>
 
 namespace bbt::http

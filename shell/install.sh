@@ -1,7 +1,10 @@
+
+installpath="/usr/local/include"
+
 function generate_head_dir_and_copy_to_dstdir()
 {
     dstdir=$1
-    cp -rf src src_h
+    cp -rf bbt/http src_h
     find src_h -name '*.c' -o -name '*.cc' -print | xargs rm
 
     if [ ! -d "$dstdir/bbt" ];then
@@ -19,7 +22,7 @@ function generate_head_dir_and_copy_to_dstdir()
 }
 
 cd ..
-generate_head_dir_and_copy_to_dstdir /usr/local/include
+generate_head_dir_and_copy_to_dstdir $installpath
 
 if [ ! -d "build" ];then
     mkdir build
@@ -27,6 +30,6 @@ fi
 
 cd build
 cmake ..
-make 
+make -j4
 sudo cp -rf lib/libybbt_http.so /usr/local/lib/
 echo "安装完成"
