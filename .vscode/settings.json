@@ -1,5 +1,9 @@
 {
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**",
+    ],
     "files.associations": {
+        "*.bat": "bat",
         "cctype": "cpp",
         "clocale": "cpp",
         "cmath": "cpp",
@@ -60,7 +64,11 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "optional": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "csignal": "cpp",
+        "bitset": "cpp",
+        "regex": "cpp",
+        "iomanip": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }

@@ -1,12 +1,16 @@
 #include <cstring>
 
 #include <event2/keyvalq_struct.h>
-#include <bbt/base/Logger/Logger.hpp>
-#include "./HttpServer.hpp"
+#include <bbt/http/HttpServer.hpp>
 
 
-namespace bbt::http::ev
+using namespace bbt::core;
+using namespace bbt::core::errcode;
+
+namespace bbt::http
 {
+
+std::atomic_uint64_t HttpServer::s_request_id{0};
 
 void EventHttpRequest(evhttp_request* req, void* arg)
 {
@@ -21,14 +25,13 @@ void EventHttpRequest(evhttp_request* req, void* arg)
 
     auto err = pthis->__Handler(req);
     if (err != std::nullopt) {
-        BBT_FULL_LOG_ERROR(err.value().What().c_str());
         return;
     }
 }
 
-bbt::buffer::Buffer Req2Buffer(evhttp_request* req)
+Buffer Req2Buffer(evhttp_request* req)
 {
-    buffer::Buffer ybuf;
+    Buffer ybuf;
     evbuffer* evbuf = evhttp_request_get_input_buffer(req);
     static char recv_buf[4096];
 
@@ -42,9 +45,9 @@ bbt::buffer::Buffer Req2Buffer(evhttp_request* req)
     return ybuf;
 }
 
-bbt::buffer::Buffer Req2Header(evhttp_request* req)
+Buffer Req2Header(evhttp_request* req)
 {
-    buffer::Buffer ybuf;
+    Buffer ybuf;
     evkeyvalq* headers = evhttp_request_get_input_headers(req);
 
     for (evkeyval* p = headers->tqh_first; p != NULL; p = p->next.tqe_next)
@@ -89,14 +92,14 @@ ErrOpt HttpServer::__BindAddress(const std::string& ip, short port)
     evhttp_bound_socket* m_listen_fd = evhttp_bind_socket_with_handle(m_http_server, ip.c_str(), port);
 
     if (m_listen_fd == nullptr) {
-        return Errcode("evhttp_bind_socket_with_handle() failed!");
+        return Errcode("evhttp_bind_socket_with_handle() failed!", emErr::ERR_UNKNOWN);
     }
 
     fd = evhttp_bound_socket_get_fd(m_listen_fd);
     memset(&ss, 0, sizeof(ss));
 
     if (getsockname(fd, (sockaddr*)&ss, &socklen)) {
-        return Errcode("getsockname() failed!");
+        return Errcode("getsockname() failed!", emErr::ERR_UNKNOWN);
     }
 
     got_port = ntohs(((sockaddr_in*)&ss)->sin_port);
@@ -104,7 +107,7 @@ ErrOpt HttpServer::__BindAddress(const std::string& ip, short port)
 
     addr = evutil_inet_ntop(ss.ss_family, inaddr, addr_buf, sizeof(addr_buf));
     if (addr == NULL) {
-        return Errcode("evutil_inet_ntop() failed!");
+        return Errcode("evutil_inet_ntop() failed!", emErr::ERR_UNKNOWN);
     }
 
     return std::nullopt;
@@ -130,7 +133,7 @@ ErrOpt HttpServer::SetHandler(const std::string& path, ReqHandler cb)
 {
     auto it = m_handles.find(path);
     if (it != m_handles.end()) {
-        return Errcode("handles repeat!", emErr::Failed);
+        return Errcode("handles repeat!", emErr::ERR_UNKNOWN);
     }
 
     m_handles.insert(std::make_pair(path, cb));
@@ -150,40 +153,38 @@ ErrOpt HttpServer::__Handler(evhttp_request* req)
             return err;
         }
 
-        bbt::buffer::Buffer header(Req2Header(req));
-        bbt::buffer::Buffer buf(Req2Buffer(req));
-        BBT_FULL_LOG_INFO("[EventHttpRequest] %s", buf.Peek());
+        Buffer header(Req2Header(req));
+        Buffer buf(Req2Buffer(req));
         it->second(id, buf, this);
     } else {
-        return Errcode(uri_path + " is not exist service(uri)");
+        return Errcode(uri_path + " is not exist service(uri)", emErr::ERR_UNKNOWN);
     }
     //TODO 走默认处理
 
     return std::nullopt;
 }
 
-ErrOpt HttpServer::DoReply(RequestId id, int code, std::string status, const buffer::Buffer& buf)
+ErrOpt HttpServer::DoReply(RequestId id, int code, std::string status, const Buffer& buf)
 {
     auto it = m_wait_requests.find(id);
     assert(it != m_wait_requests.end());
 
     evbuffer* evbuf = evbuffer_new();
-    if (evbuffer_add(evbuf, buf.Peek(), buf.DataSize()) != 0) {
-        return Errcode("evbuffer_add() failed!");
+    if (evbuffer_add(evbuf, buf.Peek(), buf.Size()) != 0) {
+        return Errcode("evbuffer_add() failed!", emErr::ERR_UNKNOWN);
     }
 
     evhttp_send_reply(it->second, code, status.c_str(), evbuf);
     evbuffer_free(evbuf);
     m_wait_requests.erase(id);
 
-    std::string str{buf.Peek(), buf.DataSize()};
-    BBT_FULL_LOG_INFO("send success: %s", str.c_str());
+    std::string str{buf.Peek(), buf.Size()};
     return std::nullopt;
 }
 
-std::pair<ErrOpt, RequestId> HttpServer::__OnRequest(evhttp_request* req)
+ErrTuple<RequestId> HttpServer::__OnRequest(evhttp_request* req)
 {
-    RequestId id = GenerateRequestId();
+    RequestId id = ++s_request_id;
 
     auto [_, isok] = m_wait_requests.insert(std::make_pair(id, req));
     assert(isok);
@@ -195,9 +196,9 @@ ErrOpt HttpServer::__AddHandler(const std::string& uri)
 {
     int err = evhttp_set_cb(m_http_server, uri.c_str(), EventHttpRequest, this);
     if (err == -1) {
-        return Errcode("cb already exist!");
+        return Errcode("cb already exist!", emErr::ERR_UNKNOWN);
     } else if (err == -2){
-        return Errcode("evhttp_set_cb() failed!");
+        return Errcode("evhttp_set_cb() failed!", emErr::ERR_UNKNOWN);
     }
 
     return std::nullopt;
@@ -207,7 +208,7 @@ ErrOpt HttpServer::__DelHandler(const std::string& uri)
 {
     int err = evhttp_del_cb(m_http_server, uri.c_str());
     if (err != 0) {
-        return Errcode("evhttp_del_cb() failed!");
+        return Errcode("evhttp_del_cb() failed!", emErr::ERR_UNKNOWN);
     }
 
     return std::nullopt;

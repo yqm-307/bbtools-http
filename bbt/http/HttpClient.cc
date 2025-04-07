@@ -3,6 +3,8 @@
 namespace bbt::http::ev
 {
 
+std::atomic_int64_t HttpClient::s_request_id{0};
+
 //FIXME 这里理解错误，write handle不是请求完成，而是socket接收到数据
 // 后续需要添加一个map保存信息
 size_t CurlWrite(void* buf, size_t size, size_t nmemb, void* arg)
@@ -13,7 +15,7 @@ size_t CurlWrite(void* buf, size_t size, size_t nmemb, void* arg)
 
     /* 缓存起来 */
     assert(data_ptr->m_response_buffer.WriteString((char*)buf, (size * nmemb)));
-    std::string str{data_ptr->m_response_buffer.Peek(), data_ptr->m_response_buffer.DataSize()};
+    std::string str{data_ptr->m_response_buffer.Peek(), data_ptr->m_response_buffer.Size()};
 
     return size * nmemb;
 }
@@ -48,10 +50,10 @@ void HttpClient::TimeTick()
     __OnTime50Ms();
 }
 
-ErrOpt HttpClient::PostReq(const char* url, buffer::Buffer& body, RespHandler cb)
+core::errcode::ErrOpt HttpClient::PostReq(const char* url, core::Buffer& body, RespHandler cb)
 {
     auto ptr = std::make_shared<RequestData>();
-    RequestId id = GenerateRequestId();
+    RequestId id = ++s_request_id;
     assert(id >= 0);
     ptr->m_id = id;
     // auto priv_data = new RequestPrivData;
@@ -74,7 +76,7 @@ ErrOpt HttpClient::PostReq(const char* url, buffer::Buffer& body, RespHandler cb
 
     /* 设置 post 数据 */
     curl_easy_setopt(easy_curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(easy_curl, CURLOPT_POSTFIELDSIZE, body.DataSize());
+    curl_easy_setopt(easy_curl, CURLOPT_POSTFIELDSIZE, body.Size());
     curl_easy_setopt(easy_curl, CURLOPT_COPYPOSTFIELDS, body.Peek());
 
     int err = curl_multi_add_handle(m_multi_conn, easy_curl);
@@ -82,7 +84,7 @@ ErrOpt HttpClient::PostReq(const char* url, buffer::Buffer& body, RespHandler cb
     if (err != CURLM_OK) {
         curl_easy_cleanup(easy_curl);
         curl_slist_free_all(list);
-        return Errcode("curl_multi_add_handle() failed! CURLMcode" + std::to_string(err));
+        return core::errcode::Errcode("curl_multi_add_handle() failed! CURLMcode" + std::to_string(err), emErr::ERR_UNKNOWN);
     }
 
     ptr->m_curl = easy_curl;

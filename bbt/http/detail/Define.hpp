@@ -1,11 +1,11 @@
 #pragma once
-#include <curl/curl.h>
 #include <functional>
+#include <curl/curl.h>
+#include <bbt/core/buffer/Buffer.hpp>
+#include <bbt/core/errcode/Errcode.hpp>
 
-#include <bbt/base/uuid/EasyID.hpp>
-
-#include "./Errcode.hpp"
-
+namespace bbt::http
+{
 
 // 服务器接受最大协议长度，超长会被截取
 #define HTTP_SERVER_PROTOCOL_MAX_LENGTH 65535
@@ -16,19 +16,16 @@
 #define HTTP_SERVER_ERROR_RESP_HEAD "HTTP/1.1 500\r\n"
 #define HTTP_SERVER_OK_RESP_HEAD    "HTTP/1.1 200 OK\r\n"
 
-namespace bbt::http
-{
+class HttpClient;
+class HttpServer;
 
-enum emEasyIdDiff
+enum emErr : core::errcode::ErrType
 {
-    EM_ID_REQUEST,
+    ERR_UNKNOWN = 0,
 };
 
 typedef int64_t RequestId;
+typedef std::function<void(CURL* req, core::Buffer& body, CURLcode)> RespHandler;
 
-static inline RequestId GenerateRequestId()
-{ 
-    return bbt::uuid::EasyID<bbt::uuid::EM_AUTO_INCREMENT, emEasyIdDiff::EM_ID_REQUEST>::GenerateID(); 
-};
 
-};
+} // namespace bbt::http

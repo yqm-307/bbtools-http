@@ -4,8 +4,7 @@
 #include <atomic>
 #include <event2/event.h>
 #include <memory>
-#include <bbt/base/buffer/Buffer.hpp>
-
+#include <bbt/core/buffer/Buffer.hpp>
 #include <bbt/http/detail/Define.hpp>
 
 namespace bbt::http::ev
@@ -13,7 +12,6 @@ namespace bbt::http::ev
 
 class HttpClient;
 
-typedef std::function<void(CURL* req, buffer::Buffer& body, CURLcode)> RespHandler;
 
 // 请求携带的私有数据
 struct RequestPrivData
@@ -28,7 +26,7 @@ struct RequestData
     CURL*       m_curl;
     curl_slist* m_req_headers;
     RequestId   m_id;
-    buffer::Buffer m_response_buffer;
+    core::Buffer m_response_buffer;
     RequestPrivData m_write_priv_data;
 };
 
@@ -39,7 +37,7 @@ public:
     HttpClient(event_base* io_ctx);
     ~HttpClient();
 
-    ErrOpt PostReq(const char* url, buffer::Buffer& body, RespHandler cb);
+    core::errcode::ErrOpt PostReq(const char* url, core::Buffer& body, RespHandler cb);
 
     void RunOnce();
     void TimeTick();
@@ -63,6 +61,8 @@ private:
     std::map<RequestId, std::shared_ptr<RequestData>> 
                                 m_request_wait_map;
     std::map<CURL*, RequestId>  m_curl_map;
+
+    static std::atomic_int64_t s_request_id;
 };
 
 
