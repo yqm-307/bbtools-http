@@ -17,15 +17,16 @@ file(GLOB_RECURSE SRCS
     ${PROJECT_SOURCE_DIR}/bbt/*.hpp
 )
 
-add_library(bbtools-http SHARED ${SRCS})
-target_link_libraries(bbtools-http
+add_library(bbt_http SHARED ${SRCS})
+target_link_libraries(bbt_http
     curl
     event_extra
     event_core
     pthread
     bbt_core
-    bbt_coroutine
+    bbt_pollevent    
 )
 
-enable_testing()
+# enable_testing()
 # add_subdirectory(test)
+add_subdirectory(example)

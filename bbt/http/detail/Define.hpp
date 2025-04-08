@@ -4,6 +4,8 @@
 #include <bbt/core/buffer/Buffer.hpp>
 #include <bbt/core/errcode/Errcode.hpp>
 
+#define BBT_HTTP_MODULE_NAME "[bbt::http]"
+
 namespace bbt::http
 {
 
@@ -18,14 +20,20 @@ namespace bbt::http
 
 class HttpClient;
 class HttpServer;
+class Request;
 
 enum emErr : core::errcode::ErrType
 {
     ERR_UNKNOWN = 0,
 };
 
+typedef CURLoption emHttpOpt;
+
 typedef int64_t RequestId;
 typedef std::function<void(CURL* req, core::Buffer& body, CURLcode)> RespHandler;
+typedef std::function<void(core::errcode::ErrOpt err, Request* req)> ResponseCallback;
 
+size_t OnRecvHeader(void* buf, size_t size, size_t nmemb, void* arg);
+size_t OnRecvBody(void* buf, size_t size, size_t nmemb, void* arg);
 
 } // namespace bbt::http
