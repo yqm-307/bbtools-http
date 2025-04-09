@@ -6,18 +6,10 @@ namespace bbt::http
 
 std::atomic_int64_t HttpClient::s_request_id{0};
 
-size_t OnRecvHeader(void* buf, size_t size, size_t nmemb, void* arg)
+size_t OnRecvResponse(void* buf, size_t size, size_t nmemb, void* arg)
 {
     auto request = reinterpret_cast<Request*>(arg);
-    request->OnRecvHeader((char*)buf, size * nmemb);
-    return size * nmemb;
-}
-
-size_t OnRecvBody(void* buf, size_t size, size_t nmemb, void* arg)
-{
-    auto request = reinterpret_cast<Request*>(arg);
-    request->OnRecvBody((char*)buf, size * nmemb);
-
+    request->OnRecvResponse((char*)buf, size * nmemb);
     return size * nmemb;
 }
 
@@ -64,8 +56,8 @@ core::errcode::ErrOpt HttpClient::ProcessRequestEx(Request* req)
         return core::errcode::Errcode(BBT_HTTP_MODULE_NAME "client regist poll event failed!", emErr::ERR_UNKNOWN);
     }
 
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, OnRecvBody);
-    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, OnRecvHeader);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, OnRecvResponse);
+    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, OnRecvResponse);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, req);
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, req);
     curl_easy_setopt(curl, CURLOPT_PRIVATE, req);

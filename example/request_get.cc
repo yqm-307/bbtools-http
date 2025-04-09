@@ -1,5 +1,6 @@
 #include <bbt/http/HttpClient.hpp>
 #include <bbt/http/Request.hpp>
+#include <bbt/http/detail/HttpParser.hpp>
 
 
 using namespace bbt;
@@ -24,12 +25,28 @@ int main()
     req.SetResponseCallback([](core::errcode::ErrOpt err, http::Request* req) {
         if (err) {
             std::cerr << "Request failed: " << err->What() << std::endl;
-        } else {
-            std::cout << "Response Header: " << req->GetHeader().Peek() << std::endl;
-            std::cout << "Response Body: " << req->GetBody().Peek() << std::endl;
+            return;
+        }
+
+        if (req->IsCompleted()) {
+            auto [err, parser] = req->Parse();
+            if (err) {
+                std::cerr << "Parse error: " << err->What() << std::endl;
+                return;
+            }
+            else {
+                std::cout << "Response Url: " << parser->GetUrl() << std::endl;
+                std::cout << "Response Status: " << parser->GetStatus() << std::endl;
+                std::cout << "Response Body: " << parser->GetBody() << std::endl;
+                std::cout << "Response Header: " << std::endl;
+                for (const auto& [key, value] : parser->GetHeaders()) {
+                    std::cout << key << ": " << value << std::endl;
+                }
+            }
         }
     });
 
+    // 执行一次 Get 请求
     if (auto err = client.ProcessRequestEx(&req); err) {
         std::cerr << "Error: " << err->What() << std::endl;
         return -1;

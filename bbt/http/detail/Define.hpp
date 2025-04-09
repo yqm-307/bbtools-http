@@ -1,6 +1,9 @@
 #pragma once
 #include <functional>
+#include <memory>
 #include <curl/curl.h>
+#include <event2/http.h>
+#include <event2/buffer.h>
 #include <bbt/core/buffer/Buffer.hpp>
 #include <bbt/core/errcode/Errcode.hpp>
 
@@ -22,6 +25,12 @@ class HttpClient;
 class HttpServer;
 class Request;
 
+namespace detail
+{
+class HttpParser;
+class Context;
+}
+
 enum emErr : core::errcode::ErrType
 {
     ERR_UNKNOWN = 0,
@@ -32,6 +41,7 @@ typedef CURLoption emHttpOpt;
 typedef int64_t RequestId;
 typedef std::function<void(CURL* req, core::Buffer& body, CURLcode)> RespHandler;
 typedef std::function<void(core::errcode::ErrOpt err, Request* req)> ResponseCallback;
+typedef std::function<void(const core::errcode::Errcode& err)> OnErrorCallback;
 
 size_t OnRecvHeader(void* buf, size_t size, size_t nmemb, void* arg);
 size_t OnRecvBody(void* buf, size_t size, size_t nmemb, void* arg);

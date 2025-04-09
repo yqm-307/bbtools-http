@@ -11,3 +11,9 @@ target_link_libraries(request_get
     bbt_pollevent
     bbt_http
 )
+
+add_executable(server server.cc)
+target_link_libraries(server
+    bbt_pollevent
+    bbt_http
+)

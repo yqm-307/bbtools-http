@@ -2,39 +2,50 @@
 #include <unordered_map>
 #include <atomic>
 #include <bbt/http/detail/Define.hpp>
-#include <event2/http.h>
-#include <event2/buffer.h>
+#include <bbt/pollevent/EvThread.hpp>
+#include <bbt/http/detail/Context.hpp>
+
+
 
 namespace bbt::http
 {
 
-class HttpServer
+class HttpServer:
+    public std::enable_shared_from_this<HttpServer>
 {
-    friend void EventHttpRequest(evhttp_request* req, void* arg);
 public:
-    typedef std::function<void(RequestId, core::Buffer&, HttpServer*)> ReqHandler;
+    typedef std::function<void(std::shared_ptr<detail::Context> resp)> ReqHandler;
 
-    HttpServer(event_base* ev);
+    HttpServer();
     ~HttpServer();
 
-    core::errcode::ErrOpt BindListenFd(const std::string& ip, short port);
-    core::errcode::ErrOpt SetHandler(const std::string& path, ReqHandler cb);
-    core::errcode::ErrOpt DoReply(RequestId id, int code, std::string status, const core::Buffer& buf);
+    core::errcode::ErrOpt   RunInEvThread(pollevent::EvThread& evthread, const std::string& ip, short port);
+
+    core::errcode::ErrOpt   Route(const std::string& uri, const ReqHandler& handle);
+    core::errcode::ErrOpt   AsyncReply(std::shared_ptr<detail::Context> resp);
+
+    void                    SetErrCallback(const OnErrorCallback& on_err);
 protected:
-    core::errcode::ErrOpt __BindAddress(const std::string& ip, short port);
-    core::errcode::ErrOpt __AddHandler(const std::string& uri);
-    core::errcode::ErrOpt __DelHandler(const std::string& uri);
+    core::errcode::ErrOpt   _BindAddress(const std::string& ip, short port);
+    void                    _ProcessRequest(evhttp_request* req);
+    void                    _ProcessSendReply();
 
-    core::errcode::ErrOpt __Handler(evhttp_request* req); 
-    core::errcode::ErrTuple<RequestId> __OnRequest(evhttp_request* req);
+    static void             OnRequest(evhttp_request* req, void* arg);
 private:
-    event_base*             m_io_ctx{NULL};
-    evhttp*                 m_http_server{NULL};
-    bool                    m_is_running{false};
-    static std::atomic_uint64_t    s_request_id;
+    struct OnReqHandle {
+        std::weak_ptr<HttpServer> server;
+        ReqHandler handle;
+    };
 
-    std::unordered_map<std::string, ReqHandler> m_handles;
-    /* 等待返回的请求 */
-    std::unordered_map<RequestId, evhttp_request*> m_wait_requests;
+    std::mutex              m_all_opt_mtx;
+    // event_base*             m_io_ctx{NULL};
+    evhttp*                 m_http_server{NULL};
+    std::atomic_bool        m_is_running{false};
+    OnErrorCallback         m_onerr{nullptr};
+    std::shared_ptr<pollevent::Event> m_send_reply_event{nullptr};
+
+    std::unordered_map<std::string, OnReqHandle*> m_handles;
+    std::queue<std::shared_ptr<detail::Context>> m_async_send_response_queue;    // 异步发送响应队列
+    
 };
 } // namespace bbt::http

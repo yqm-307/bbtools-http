@@ -14,27 +14,8 @@ namespace bbt::http
 
 class HttpClient;
 
-
-// 请求携带的私有数据
-struct RequestPrivData
-{
-    HttpClient* m_pthis{NULL};
-    uint64_t    m_request_id{0};
-};
-
-struct RequestData
-{
-    RespHandler m_response_callback;
-    CURL*       m_curl;
-    curl_slist* m_req_headers;
-    RequestId   m_id;
-    core::Buffer m_response_buffer;
-    RequestPrivData m_write_priv_data;
-};
-
 class HttpClient
 {
-    friend size_t CurlWrite(void* buf, size_t size, size_t nmemb, void* arg);
 public:
     HttpClient();
     ~HttpClient();

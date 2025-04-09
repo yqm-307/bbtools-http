@@ -1,5 +1,7 @@
 #include <cstdarg>
+#include <memory>
 #include <bbt/http/Request.hpp>
+#include <bbt/http/detail/HttpParser.hpp>
 
 #define ERR_PREFIX BBT_HTTP_MODULE_NAME "[Request]"
 
@@ -8,11 +10,6 @@ using namespace bbt::core::errcode;
 namespace bbt::http
 {
 
-
-size_t WriteHeaderCallback(void* contents, size_t size, size_t nmemb, void* userp);
-size_t WriteBodyCallback(void* contents, size_t size, size_t nmemb, void* userp);
-
-
 Request::Request():
     m_curl(curl_easy_init())
 {
@@ -20,6 +17,7 @@ Request::Request():
 
 Request::~Request()
 {
+    // llhttp_free(m_response_parser);
     curl_easy_cleanup(m_curl);
     m_curl = nullptr;
 }
@@ -29,8 +27,17 @@ bool Request::IsCompleted()
     return m_is_completed.load();
 }
 
+void Request::Clear()
+{
+
+}
+
+
 ErrOpt Request::SetOpt(emHttpOpt opt, ...)
 {
+    if (m_is_completed.load())
+        return Errcode{ERR_PREFIX "[Request] already completed!", emErr::ERR_UNKNOWN};
+
     if (!m_curl)
         return Errcode{ERR_PREFIX "[Request] bad curl!", emErr::ERR_UNKNOWN};
 
@@ -52,14 +59,19 @@ void Request::SetResponseCallback(const ResponseCallback& cb)
     m_on_resp_cb = cb;
 }
 
-void Request::OnRecvHeader(const char* header, size_t len)
+core::errcode::ErrTuple<std::shared_ptr<detail::HttpParser>> Request::Parse() const
 {
-    m_response_header.WriteString(header, len);
+    auto parser = std::make_shared<detail::HttpParser>(HTTP_RESPONSE);
+    if (auto err = parser->ExecuteParse(m_response_data.Peek(), m_response_data.Size()); err != std::nullopt) {
+        return {Errcode{ERR_PREFIX "Parse response failed!", emErr::ERR_UNKNOWN}, nullptr};
+    }
+
+    return {std::nullopt, parser};
 }
 
-void Request::OnRecvBody(const char* body, size_t len)
+void Request::OnRecvResponse(const char* header, size_t len)
 {
-    m_response_header.WriteString(body, len);
+    m_response_data.WriteString(header, len);
 }
 
 void Request::OnComplete(core::errcode::ErrOpt err)
@@ -74,14 +86,9 @@ CURL* Request::GetCURL()
     return m_curl;
 }
 
-const bbt::core::Buffer& Request::GetHeader() const
+const bbt::core::Buffer& Request::GetRawResponse() const
 {
-    return m_response_header;
-}
-
-const bbt::core::Buffer& Request::GetBody() const
-{
-    return m_response_body;
+    return m_response_data;
 }
 
 } // namespace bbt::http
