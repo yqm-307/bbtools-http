@@ -37,10 +37,11 @@ enum emErr : core::errcode::ErrType
 };
 
 typedef CURLoption emHttpOpt;
+typedef evhttp_cmd_type emHttpMethod;
 
 typedef int64_t RequestId;
 typedef std::function<void(CURL* req, core::Buffer& body, CURLcode)> RespHandler;
-typedef std::function<void(core::errcode::ErrOpt err, Request* req)> ResponseCallback;
+typedef std::function<void(core::errcode::ErrOpt err)> ResponseCallback;
 typedef std::function<void(const core::errcode::Errcode& err)> OnErrorCallback;
 
 size_t OnRecvHeader(void* buf, size_t size, size_t nmemb, void* arg);

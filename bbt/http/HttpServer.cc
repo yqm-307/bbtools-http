@@ -62,18 +62,17 @@ HttpServer::HttpServer()
 
 HttpServer::~HttpServer()
 {
+    std::lock_guard<std::mutex> guard(m_all_opt_mtx);
 
+    for (auto&& [uri, onreq_handle] : m_handles)
     {
-        std::lock_guard<std::mutex> guard(m_all_opt_mtx);
-
-        for (auto&& [uri, onreq_handle] : m_handles)
-        {
-            delete onreq_handle;
-            evhttp_del_cb(m_http_server, uri.c_str());
-        }
+        delete onreq_handle;
     }
 
-    evhttp_free(m_http_server);
+    if (m_http_server != nullptr) {
+        evhttp_free(m_http_server);
+        m_http_server = nullptr;
+    }
     
 }
 
@@ -113,14 +112,17 @@ ErrOpt HttpServer::_BindAddress(const std::string& ip, short port)
 
 ErrOpt HttpServer::RunInEvThread(pollevent::EvThread& evthread, const std::string& ip, short port)
 {
-    bool expected = false;
-    if (m_is_running.compare_exchange_strong(expected, true) == false)
-        return std::nullopt;
+    std::unique_lock<std::mutex> lock(m_all_opt_mtx);
+    if (m_is_running)
+        return Errcode{ERR_PREFIX "http server is already running!", emErr::ERR_UNKNOWN};
+    m_is_running = true;
 
     m_http_server = evhttp_new(evthread.GetEventLoop()->GetEventBase()->GetRawBase());
 
-    auto err = _BindAddress(ip, port);
+    if (auto err = _BindAddress(ip, port); err.has_value())
+        return err;
 
+    // 开启发送事件
     m_send_reply_event = evthread.RegisterEvent(-1, pollevent::EventOpt::PERSIST, [weak_this{weak_from_this()}](int fd, short events, auto eventid) {
         if (auto shared_this = weak_this.lock(); shared_this) {
             shared_this->_ProcessSendReply();
@@ -137,30 +139,57 @@ ErrOpt HttpServer::Route(const std::string& uri, const ReqHandler& handle)
 {
     std::lock_guard<std::mutex> guard(m_all_opt_mtx);
 
-    auto it = m_handles.find(uri);
-    if (it != m_handles.end()) {
-        return Errcode("handles repeat!", emErr::ERR_UNKNOWN);
-    }
-
     auto req_handle = new OnReqHandle{.server = weak_from_this(), .handle = handle};
 
-    m_handles[uri] = req_handle;
+    if (auto err = evhttp_set_cb(m_http_server, uri.c_str(), OnRequest, (void*)req_handle); err != 0) {
+        delete req_handle;
+        return Errcode{ERR_PREFIX "add cb failed! " + std::string((err == -1 ? "repeat" : "unknown")), emErr::ERR_UNKNOWN};
+    }
 
-    if (0 != evhttp_set_cb(m_http_server, uri.c_str(), OnRequest, (void*)m_handles[uri]))
-        return Errcode{ERR_PREFIX "add cb failed!", emErr::ERR_UNKNOWN};
+    m_handles[uri] = req_handle;
 
     return std::nullopt;
 }
 
-void HttpServer::_ProcessRequest(evhttp_request* req)
+core::errcode::ErrOpt HttpServer::UnRoute(const std::string& uri)
 {
-    const evhttp_uri* uri_obj = evhttp_request_get_evhttp_uri(req);
-    const char* uri_path = evhttp_uri_get_path(uri_obj);
+    std::lock_guard<std::mutex> guard(m_all_opt_mtx);
+    
+    if (0 != evhttp_del_cb(m_http_server, uri.c_str()))
+        return Errcode{ERR_PREFIX "del cb failed!", emErr::ERR_UNKNOWN};
+
+    auto it = m_handles.find(uri);
+    Assert(it != m_handles.end());    
+
+    delete it->second;
+    m_handles.erase(it);
+
+    return std::nullopt;
+}
+
+core::errcode::ErrOpt HttpServer::Stop()
+{
+    std::lock_guard<std::mutex> guard(m_all_opt_mtx);
+
+    if (m_send_reply_event == nullptr)
+        return std::nullopt;
+
+    if (0 != m_send_reply_event->CancelListen())
+        return Errcode{ERR_PREFIX "stop listen failed!", emErr::ERR_UNKNOWN};
+
+    m_send_reply_event = nullptr;
+    
+    evhttp_free(m_http_server);
+    m_http_server = nullptr;
+
+    m_is_running = false;
+
+    return std::nullopt;
 }
 
 void HttpServer::_ProcessSendReply()
 {
-    std::lock_guard<std::mutex> guard(m_all_opt_mtx);
+    std::unique_lock<std::mutex> lock(m_all_opt_mtx);
 
     while (!m_async_send_response_queue.empty())
     {
@@ -178,11 +207,13 @@ void HttpServer::_ProcessSendReply()
 
 core::errcode::ErrOpt HttpServer::AsyncReply(std::shared_ptr<detail::Context> resp)
 {
-    if (resp == nullptr) {
+    if (resp == nullptr)
         return Errcode("response is null!", emErr::ERR_UNKNOWN);
-    }
 
     std::lock_guard<std::mutex> guard(m_all_opt_mtx);
+    if (!m_is_running)
+        return Errcode("http server is not running!", emErr::ERR_UNKNOWN);
+
     m_async_send_response_queue.push(resp);
 
     return std::nullopt;
@@ -190,6 +221,7 @@ core::errcode::ErrOpt HttpServer::AsyncReply(std::shared_ptr<detail::Context> re
 
 void HttpServer::SetErrCallback(const OnErrorCallback& on_err)
 {
+    std::lock_guard<std::mutex> guard(m_all_opt_mtx);
     m_onerr = on_err;
 }
 

@@ -7,11 +7,17 @@
 namespace bbt::http
 {
 
-class Request
+class Request:
+    public std::enable_shared_from_this<Request>
 {
 public:
+    Request(Request&& other) = default;
+    Request(const Request& other) = default;
     Request();
     ~Request();
+
+    Request& operator=(Request&& other) = default;
+    Request& operator=(const Request& other) = default;
 
     CURL*                       GetCURL();
     bool                        IsCompleted();
@@ -37,7 +43,7 @@ private:
     bbt::core::Buffer m_response_data{8};
 
     ResponseCallback  m_on_resp_cb{nullptr};
-    std::atomic_bool  m_is_completed{false};
+    volatile bool     m_is_completed{false};
 };
 
 } // namespace bbt::http

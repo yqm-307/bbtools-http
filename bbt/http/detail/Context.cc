@@ -1,3 +1,6 @@
+#include <iostream>
+#include <string>
+#include <sstream>
 #include <event2/keyvalq_struct.h>
 #include <bbt/http/detail/Context.hpp>
 #include <bbt/http/HttpServer.hpp>
@@ -9,6 +12,8 @@ using namespace bbt::core::errcode;
 
 namespace bbt::http::detail
 {
+
+const std::string Context::s_empty_header = "";
 
 Context::Context(std::weak_ptr<HttpServer> server, evhttp_request* req):
     m_server(server),
@@ -24,15 +29,44 @@ Context::~Context()
         // evhttp_request_free(m_req);
 }
 
-evhttp_request* Context::GetRawReq() const
+const std::unordered_map<std::string, std::string>& Context::GetHeaders() const
 {
-    return m_req;
+    return m_request_fields_data.headers;
 }
 
-const FieldData& Context::GetRequestFieldData() const
+const std::string& Context::GetUrl() const
 {
-    return m_request_fields_data;
+    return m_request_fields_data.url;
 }
+
+const std::string& Context::GetBody() const
+{
+    return m_request_fields_data.body;
+}
+
+const emHttpMethod& Context::GetMethod() const
+{
+    return m_request_fields_data.method;
+}
+
+const std::string& Context::GetHeader(const std::string& key) const
+{
+    auto it = m_request_fields_data.headers.find(key);
+    if (it != m_request_fields_data.headers.end()) {
+        return it->second;
+    }
+    return s_empty_header;
+}
+
+const std::string& Context::GetParam(const std::string& query) const
+{
+    auto it = m_request_fields_data.parammap.find(query);
+    if (it != m_request_fields_data.parammap.end()) {
+        return it->second;
+    }
+    return s_empty_header;
+}
+
 
 Context& Context::AddHeaderL(const char* key, const char* value)
 {
@@ -94,20 +128,38 @@ core::errcode::ErrOpt Context::_DoSendReply(evhttp* http)
 
 void Context::_ParseRequest()
 {
+    // 解析uri
     auto* parsed_uri = evhttp_request_get_evhttp_uri(m_req);
-    m_request_fields_data.m_url = std::string(evhttp_uri_get_path(parsed_uri));
+    m_request_fields_data.url = std::string(evhttp_uri_get_path(parsed_uri));
     auto* headers = evhttp_request_get_input_headers(m_req);
     for (auto* header = headers->tqh_first; header != nullptr; header = header->next.tqe_next) {
-        m_request_fields_data.m_kv_http_response[header->key] = header->value;
+        m_request_fields_data.headers[header->key] = header->value;
+    }
+
+    const char* query = evhttp_uri_get_query(parsed_uri);
+    if (query != nullptr) {
+        std::istringstream query_stream(query);
+        std::string pair;
+
+        while (std::getline(query_stream, pair, '&')) {
+            size_t pos = pair.find('=');
+            if (pos != std::string::npos) {
+                std::string key = pair.substr(0, pos);
+                std::string value = pair.substr(pos + 1);
+                m_request_fields_data.parammap[key] = value;
+            }
+        }
     }
 
     auto* body = evhttp_request_get_input_buffer(m_req);
     size_t len = evbuffer_get_length(body);
 
     if (len > 0) {
-        m_request_fields_data.m_body.resize(len);
-        evbuffer_copyout(body, m_request_fields_data.m_body.data(), len);
+        m_request_fields_data.body.resize(len);
+        evbuffer_copyout(body, m_request_fields_data.body.data(), len);
     }
+
+    m_request_fields_data.method = evhttp_request_get_command(m_req);
 }
 
 

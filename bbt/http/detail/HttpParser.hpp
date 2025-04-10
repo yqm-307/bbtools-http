@@ -5,12 +5,15 @@
 namespace bbt::http::detail
 {
 
-struct FieldData
+struct ParserData
 {
-    std::string m_url{""};
-    std::string m_status{""};
-    std::string m_body{""};
-    std::unordered_map<std::string, std::string> m_kv_http_response;
+    int code{-1};
+    std::string status{""};
+    std::string url{""};
+    emHttpMethod method;
+    std::string body{""};
+    std::unordered_map<std::string, std::string> headers;
+    std::unordered_map<std::string, std::string> parammap;
 };
 
 class HttpParser
@@ -45,7 +48,7 @@ private:
     llhttp_t* m_response_parser{nullptr};
     llhttp_settings_t m_settings;
 
-    FieldData   m_field_data;
+    ParserData  m_response_data;
 
     std::string m_last_key{""};
     bool m_is_completed{false};

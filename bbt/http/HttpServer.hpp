@@ -19,15 +19,56 @@ public:
     HttpServer();
     ~HttpServer();
 
+    /**
+     * @brief 将Server运行在指定端口、地址、evthread中，请不要在多线程中使用
+     * 
+     * @param evthread 
+     * @param ip 
+     * @param port 
+     * @return core::errcode::ErrOpt 
+     */
     core::errcode::ErrOpt   RunInEvThread(pollevent::EvThread& evthread, const std::string& ip, short port);
 
+    /**
+     * @brief 注册一个http请求的处理函数（线程安全）
+     * 
+     * @param uri 
+     * @param handle 
+     * @return core::errcode::ErrOpt 
+     */
     core::errcode::ErrOpt   Route(const std::string& uri, const ReqHandler& handle);
-    core::errcode::ErrOpt   AsyncReply(std::shared_ptr<detail::Context> resp);
 
+    /**
+     * @brief 反注册一个http请求处理函数（线程安全）
+     * 
+     * @param uri 
+     * @return core::errcode::ErrOpt 
+     */
+    core::errcode::ErrOpt   UnRoute(const std::string& uri);
+
+    /**
+     * @brief 停止服务器
+     * 
+     * @return core::errcode::ErrOpt 
+     */
+    core::errcode::ErrOpt   Stop();
+
+    /**
+     * @brief 异步发送响应（线程安全）
+     * 
+     * @param resp 
+     * @return core::errcode::ErrOpt 
+     */
+    core::errcode::ErrOpt   AsyncReply(std::shared_ptr<detail::Context> c);
+
+    /**
+     * @brief 设置一个错误处理函数
+     * 
+     * @param on_err 
+     */
     void                    SetErrCallback(const OnErrorCallback& on_err);
 protected:
     core::errcode::ErrOpt   _BindAddress(const std::string& ip, short port);
-    void                    _ProcessRequest(evhttp_request* req);
     void                    _ProcessSendReply();
 
     static void             OnRequest(evhttp_request* req, void* arg);
@@ -38,9 +79,8 @@ private:
     };
 
     std::mutex              m_all_opt_mtx;
-    // event_base*             m_io_ctx{NULL};
     evhttp*                 m_http_server{NULL};
-    std::atomic_bool        m_is_running{false};
+    volatile bool           m_is_running{false};
     OnErrorCallback         m_onerr{nullptr};
     std::shared_ptr<pollevent::Event> m_send_reply_event{nullptr};
 

@@ -4,8 +4,6 @@
 namespace bbt::http
 {
 
-std::atomic_int64_t HttpClient::s_request_id{0};
-
 size_t OnRecvResponse(void* buf, size_t size, size_t nmemb, void* arg)
 {
     auto request = reinterpret_cast<Request*>(arg);
@@ -13,19 +11,22 @@ size_t OnRecvResponse(void* buf, size_t size, size_t nmemb, void* arg)
     return size * nmemb;
 }
 
-HttpClient::HttpClient()
+HttpClient::HttpClient():
+    m_multi_conn(curl_multi_init())
 {
-    m_multi_conn = curl_multi_init();
 }
 
 HttpClient::~HttpClient()
 {
-    curl_multi_cleanup(m_multi_conn);
+    std::lock_guard<std::mutex> lock(m_all_opt_mtx);
+    if (m_multi_conn != nullptr) {
+        curl_multi_cleanup(m_multi_conn);
+        m_multi_conn = nullptr;
+    }
 }
 
 core::errcode::ErrOpt HttpClient::RunInEvThread(pollevent::EvThread& thread)
 {
-
     m_poll_event = thread.RegisterEvent(-1, EV_PERSIST | EV_TIMEOUT, [this](int fd, short event, pollevent::EventId id) {
         TimeTick();
     });
@@ -41,13 +42,35 @@ core::errcode::ErrOpt HttpClient::RunInEvThread(pollevent::EvThread& thread)
     return std::nullopt;
 }
 
+core::errcode::ErrOpt HttpClient::Stop()
+{
+    std::lock_guard<std::mutex> lock(m_all_opt_mtx);
+    if (m_poll_event == nullptr) {
+        return std::nullopt;
+    }
+
+    if (0 != m_poll_event->CancelListen()) {
+        return core::errcode::Errcode(BBT_HTTP_MODULE_NAME "client stop event failed!", emErr::ERR_UNKNOWN);
+    }
+
+    m_poll_event = nullptr;
+    return std::nullopt;
+}
+
 
 void HttpClient::TimeTick()
 {
-    RunOnce();
+    int running_handles = 0;
+    int done_handles = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_all_opt_mtx);
+        CURLMcode err = curl_multi_perform(m_multi_conn, &running_handles);
+    }
+
+    __CheckDone();
 }
 
-core::errcode::ErrOpt HttpClient::ProcessRequestEx(Request* req)
+core::errcode::ErrOpt HttpClient::ProcessRequestEx(std::shared_ptr<Request> req)
 {
     CURL* curl = req->GetCURL();
     int err = 0;
@@ -58,11 +81,14 @@ core::errcode::ErrOpt HttpClient::ProcessRequestEx(Request* req)
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, OnRecvResponse);
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, OnRecvResponse);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, req);
-    curl_easy_setopt(curl, CURLOPT_HEADERDATA, req);
-    curl_easy_setopt(curl, CURLOPT_PRIVATE, req);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, req.get());
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, req.get());
+    curl_easy_setopt(curl, CURLOPT_PRIVATE, req.get());
 
-    err = curl_multi_add_handle(m_multi_conn, curl);
+    {
+        std::lock_guard<std::mutex> lock(m_all_opt_mtx);
+        err = curl_multi_add_handle(m_multi_conn, curl);
+    }
     if (err != CURLM_OK) {
         return core::errcode::Errcode(BBT_HTTP_MODULE_NAME "client regist poll event failed!", emErr::ERR_UNKNOWN);
     }
@@ -70,18 +96,13 @@ core::errcode::ErrOpt HttpClient::ProcessRequestEx(Request* req)
     return std::nullopt;
 }
 
-void HttpClient::RunOnce()
-{
-    int running_handles = 0;
-    int done_handles = 0;
-    CURLMcode err = curl_multi_perform(m_multi_conn, &running_handles);
-
-    __CheckDone();
-}
-
 void HttpClient::__CheckDone()
 {
     CURLMsg* msg = nullptr;
+    Request* req = nullptr;
+
+    std::unique_lock<std::mutex> lock(m_all_opt_mtx);
+
     do {
         int msgq = 0;
         msg = curl_multi_info_read(m_multi_conn, &msgq);
@@ -89,12 +110,16 @@ void HttpClient::__CheckDone()
         {
             CURL* easy_curl = msg->easy_handle;
             curl_multi_remove_handle(m_multi_conn, easy_curl);
-            Request* req = nullptr;
+            lock.unlock();
+
+            req = nullptr;
             if (curl_easy_getinfo(easy_curl, CURLINFO_PRIVATE, &req) == CURLcode::CURLE_OK && req != nullptr)
             {
+
                 req->OnComplete(std::nullopt);  // 不知道超时之类的怎么触发的，先都当成功处理
             }
-
+            
+            lock.lock();
             curl_multi_remove_handle(m_multi_conn, easy_curl);
         }
     } while(msg);

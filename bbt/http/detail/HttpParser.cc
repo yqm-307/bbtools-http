@@ -75,14 +75,14 @@ core::errcode::ErrOpt HttpParser::_FinishExecuteParse()
 int HttpParser::OnParseUrl(llhttp_t* parser, const char* at, size_t length)
 {
     auto http_parser = reinterpret_cast<HttpParser*>(parser->data);
-    http_parser->m_field_data.m_url = std::string(at, length);
+    http_parser->m_response_data.url = std::string(at, length);
     return 0;
 }
 
 int HttpParser::OnParseStatus(llhttp_t* parser, const char* at, size_t length)
 {
     auto http_parser = reinterpret_cast<HttpParser*>(parser->data);
-    http_parser->m_field_data.m_status = std::string(at, length);
+    http_parser->m_response_data.status = std::string(at, length);
     return 0;
 }
 
@@ -90,7 +90,7 @@ int HttpParser::OnParseHeaderField(llhttp_t* parser, const char* at, size_t leng
 {
     auto http_parser = reinterpret_cast<HttpParser*>(parser->data);
     std::string key(at, length);
-    http_parser->m_field_data.m_kv_http_response[key] = "";
+    http_parser->m_response_data.headers[key] = "";
     http_parser->m_last_key = key;
     return 0;
 }
@@ -99,11 +99,11 @@ int HttpParser::OnParseHeaderValue(llhttp_t* parser, const char* at, size_t leng
 {
     auto http_parser = reinterpret_cast<HttpParser*>(parser->data);
     std::string value(at, length);
-    auto it = http_parser->m_field_data.m_kv_http_response.find(http_parser->m_last_key);
-    if (it != http_parser->m_field_data.m_kv_http_response.end()) {
+    auto it = http_parser->m_response_data.headers.find(http_parser->m_last_key);
+    if (it != http_parser->m_response_data.headers.end()) {
         it->second = value;
     } else {
-        http_parser->m_field_data.m_kv_http_response[http_parser->m_last_key] = value;
+        http_parser->m_response_data.headers[http_parser->m_last_key] = value;
     }
     return 0;
 }
@@ -118,7 +118,7 @@ int HttpParser::OnParseHeadersComplete(llhttp_t* parser)
 int HttpParser::OnParseBody(llhttp_t* parser, const char* at, size_t length)
 {
     auto http_parser = reinterpret_cast<HttpParser*>(parser->data);
-    http_parser->m_field_data.m_body.append(at, length);
+    http_parser->m_response_data.body.append(at, length);
     return 0;
 }
 
@@ -131,8 +131,8 @@ int HttpParser::OnParseMessageComplete(llhttp_t* parser)
 
 bool HttpParser::GetHeaderValue(const std::string& key, std::string& value) const
 {
-    auto it = m_field_data.m_kv_http_response.find(key);
-    if (it != m_field_data.m_kv_http_response.end()) {
+    auto it = m_response_data.headers.find(key);
+    if (it != m_response_data.headers.end()) {
         value = it->second;
         return true;
     }
@@ -141,22 +141,22 @@ bool HttpParser::GetHeaderValue(const std::string& key, std::string& value) cons
 
 const std::string& HttpParser::GetUrl() const
 {
-    return m_field_data.m_url;
+    return m_response_data.url;
 }
 
 const std::string& HttpParser::GetStatus() const
 {
-    return m_field_data.m_status;
+    return m_response_data.status;
 }
 
 const std::string& HttpParser::GetBody() const
 {
-    return m_field_data.m_body;
+    return m_response_data.body;
 }
 
 const std::unordered_map<std::string, std::string>& HttpParser::GetHeaders() const
 {
-    return m_field_data.m_kv_http_response;
+    return m_response_data.headers;
 }
 
 

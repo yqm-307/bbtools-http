@@ -16,13 +16,13 @@ int main()
         return -1;
     }
 
-    auto req = http::Request{};
+    auto req = std::make_shared<http::Request>();
 
-    req.SetOpt(http::emHttpOpt::CURLOPT_URL, "http://www.example.com");
-    req.SetOpt(http::emHttpOpt::CURLOPT_HTTPGET, 1L);
-    req.SetOpt(http::emHttpOpt::CURLOPT_TIMEOUT_MS, 1000);
+    req->SetOpt(http::emHttpOpt::CURLOPT_URL, "http://www.example.com");
+    req->SetOpt(http::emHttpOpt::CURLOPT_HTTPGET, 1L);
+    req->SetOpt(http::emHttpOpt::CURLOPT_TIMEOUT_MS, 1000);
 
-    req.SetResponseCallback([](core::errcode::ErrOpt err, http::Request* req) {
+    req->SetResponseCallback([req](auto err) {
         if (err) {
             std::cerr << "Request failed: " << err->What() << std::endl;
             return;
@@ -47,7 +47,7 @@ int main()
     });
 
     // 执行一次 Get 请求
-    if (auto err = client.ProcessRequestEx(&req); err) {
+    if (auto err = client.ProcessRequestEx(req); err) {
         std::cerr << "Error: " << err->What() << std::endl;
         return -1;
     }

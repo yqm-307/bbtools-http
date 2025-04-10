@@ -24,7 +24,7 @@ Request::~Request()
 
 bool Request::IsCompleted()
 {
-    return m_is_completed.load();
+    return m_is_completed;
 }
 
 void Request::Clear()
@@ -35,7 +35,7 @@ void Request::Clear()
 
 ErrOpt Request::SetOpt(emHttpOpt opt, ...)
 {
-    if (m_is_completed.load())
+    if (m_is_completed)
         return Errcode{ERR_PREFIX "[Request] already completed!", emErr::ERR_UNKNOWN};
 
     if (!m_curl)
@@ -76,9 +76,9 @@ void Request::OnRecvResponse(const char* header, size_t len)
 
 void Request::OnComplete(core::errcode::ErrOpt err)
 {
-    m_is_completed.store(true);
+    m_is_completed = true;
     if (m_on_resp_cb)
-        m_on_resp_cb(err, this);
+        m_on_resp_cb(err);
 }
 
 CURL* Request::GetCURL()
