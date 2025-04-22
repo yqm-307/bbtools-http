@@ -69,6 +69,11 @@ HttpServer::~HttpServer()
         delete onreq_handle;
     }
 
+    if (m_send_reply_event != nullptr) {
+        m_send_reply_event->CancelListen();
+        m_send_reply_event = nullptr;
+    }
+
     if (m_http_server != nullptr) {
         evhttp_free(m_http_server);
         m_http_server = nullptr;
@@ -79,32 +84,10 @@ HttpServer::~HttpServer()
 
 ErrOpt HttpServer::_BindAddress(const std::string& ip, short port)
 {
-    sockaddr_storage ss;
-    evutil_socket_t fd;
-    ev_socklen_t socklen = sizeof(ss);
-    char addr_buf[128];
-    void* inaddr;
-    const char* addr;
-    int got_port = -1;
     evhttp_bound_socket* m_listen_fd = evhttp_bind_socket_with_handle(m_http_server, ip.c_str(), port);
 
     if (m_listen_fd == nullptr) {
         return Errcode("evhttp_bind_socket_with_handle() failed!", emErr::ERR_UNKNOWN);
-    }
-
-    fd = evhttp_bound_socket_get_fd(m_listen_fd);
-    memset(&ss, 0, sizeof(ss));
-
-    if (getsockname(fd, (sockaddr*)&ss, &socklen)) {
-        return Errcode("getsockname() failed!", emErr::ERR_UNKNOWN);
-    }
-
-    got_port = ntohs(((sockaddr_in*)&ss)->sin_port);
-    inaddr = &((sockaddr_in*)&ss)->sin_addr;
-
-    addr = evutil_inet_ntop(ss.ss_family, inaddr, addr_buf, sizeof(addr_buf));
-    if (addr == NULL) {
-        return Errcode("evutil_inet_ntop() failed!", emErr::ERR_UNKNOWN);
     }
 
     return std::nullopt;

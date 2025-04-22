@@ -41,19 +41,19 @@ int main()
     evthread->Start();
     std::cout << "Server is running..." << std::endl;
     sleep(5);
-    if (auto err = server->UnRoute("/echo"); err != std::nullopt) {
-        std::cerr << err.value().What() << std::endl;
-        return -1;
-    }
+    // if (auto err = server->UnRoute("/echo"); err != std::nullopt) {
+    //     std::cerr << err.value().What() << std::endl;
+    //     return -1;
+    // }
 
-    std::cout << "unroute /echo" << std::endl;
-    sleep(5);
-    server->Route("/echo", EchoService);
-    std::cout << "re-route /echo" << std::endl;
+    // std::cout << "unroute /echo" << std::endl;
+    // sleep(5);
+    // server->Route("/echo", EchoService);
+    // std::cout << "re-route /echo" << std::endl;
 
-    sleep(5);
+    // sleep(5);
 
-    server->Stop();
     
     evthread->Join();
+    server->Stop();
 }

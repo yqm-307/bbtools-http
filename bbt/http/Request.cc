@@ -1,7 +1,7 @@
 #include <cstdarg>
 #include <memory>
 #include <bbt/http/Request.hpp>
-#include <bbt/http/detail/HttpParser.hpp>
+#include <bbt/http/detail/RespParser.hpp>
 
 #define ERR_PREFIX BBT_HTTP_MODULE_NAME "[Request]"
 
@@ -59,14 +59,14 @@ void Request::SetResponseCallback(const ResponseCallback& cb)
     m_on_resp_cb = cb;
 }
 
-core::errcode::ErrTuple<std::shared_ptr<detail::HttpParser>> Request::Parse() const
+core::errcode::ErrTuple<std::shared_ptr<detail::RespParser>> Request::Parse() const
 {
-    auto parser = std::make_shared<detail::HttpParser>(HTTP_RESPONSE);
-    if (auto err = parser->ExecuteParse(m_response_data.Peek(), m_response_data.Size()); err != std::nullopt) {
+    auto resp_parser = std::make_shared<detail::RespParser>();
+    if (auto err = resp_parser->ExecuteParse(m_response_data.Peek(), m_response_data.Size()); err != std::nullopt) {
         return {Errcode{ERR_PREFIX "Parse response failed!", emErr::ERR_UNKNOWN}, nullptr};
     }
 
-    return {std::nullopt, parser};
+    return {std::nullopt, resp_parser};
 }
 
 void Request::OnRecvResponse(const char* header, size_t len)

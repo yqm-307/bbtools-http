@@ -21,6 +21,9 @@ HttpParser::~HttpParser()
 
 core::errcode::ErrOpt HttpParser::ExecuteParse(const char* data, size_t len)
 {
+    if (m_is_completed)
+        return std::nullopt;
+
     if (auto err = _PreExecuteParse(); err != std::nullopt) {
         return err;
     }
@@ -46,6 +49,7 @@ core::errcode::ErrOpt HttpParser::_PreExecuteParse()
     m_settings.on_headers_complete = OnParseHeadersComplete;
     m_settings.on_body = OnParseBody;
     m_settings.on_message_complete = OnParseMessageComplete;
+    m_settings.on_version = OnParseVersion;
 
     m_response_parser->settings = (void*)&m_settings;
     m_response_parser->data = this;
@@ -129,36 +133,13 @@ int HttpParser::OnParseMessageComplete(llhttp_t* parser)
     return 0;
 }
 
-bool HttpParser::GetHeaderValue(const std::string& key, std::string& value) const
+int HttpParser::OnParseVersion(llhttp_t* parser, const char* at, size_t length)
 {
-    auto it = m_response_data.headers.find(key);
-    if (it != m_response_data.headers.end()) {
-        value = it->second;
-        return true;
-    }
-    return false;
+    auto http_parser = reinterpret_cast<HttpParser*>(parser->data);
+    std::string version(at, length);
+    http_parser->m_response_data.version = version;
+    return 0;
 }
-
-const std::string& HttpParser::GetUrl() const
-{
-    return m_response_data.url;
-}
-
-const std::string& HttpParser::GetStatus() const
-{
-    return m_response_data.status;
-}
-
-const std::string& HttpParser::GetBody() const
-{
-    return m_response_data.body;
-}
-
-const std::unordered_map<std::string, std::string>& HttpParser::GetHeaders() const
-{
-    return m_response_data.headers;
-}
-
 
 
 } // namespace bbt::http::detail

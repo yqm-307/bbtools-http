@@ -1,6 +1,5 @@
 #include <bbt/http/HttpClient.hpp>
 #include <bbt/http/Request.hpp>
-#include <bbt/http/detail/HttpParser.hpp>
 
 
 using namespace bbt;
@@ -35,7 +34,7 @@ int main()
                 return;
             }
             else {
-                std::cout << "Response Url: " << parser->GetUrl() << std::endl;
+                std::cout << "Request Version: " << parser->GetVersion() << std::endl;
                 std::cout << "Response Status: " << parser->GetStatus() << std::endl;
                 std::cout << "Response Body: " << parser->GetBody() << std::endl;
                 std::cout << "Response Header: " << std::endl;

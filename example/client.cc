@@ -16,9 +16,7 @@ int main()
     auto event = thread->RegisterEvent(-1, EV_PERSIST | EV_TIMEOUT, [&client](int fd, short event, bbt::pollevent::EventId id) {
         auto req = std::make_shared<bbt::http::Request>();
 
-        req->SetOpt(bbt::http::emHttpOpt::CURLOPT_URL, "http://127.0.0.1:11001/testc");
-        req->SetOpt(bbt::http::emHttpOpt::CURLOPT_HTTPPOST, 1L);
-        req->SetOpt(bbt::http::emHttpOpt::CURLOPT_POSTFIELDS, R"({"key":"value"})");
+        req->SetOpt(bbt::http::emHttpOpt::CURLOPT_URL, "http://127.0.0.1:11001/echo?msg=helloworld");
         req->SetResponseCallback([req](auto err){
             if (err.has_value()) {
                 std::cerr << "Request failed: " << err.value().What() << std::endl;
@@ -35,7 +33,7 @@ int main()
         }
     });
 
-    event->StartListen(200);
+    event->StartListen(500);
 
     
     thread->Start();

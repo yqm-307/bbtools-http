@@ -121,7 +121,7 @@ core::errcode::ErrOpt Context::_DoSendReply(evhttp* http)
     if (m_is_complete)
         return Errcode(ERR_PREFIX "response is already complete!", emErr::ERR_UNKNOWN);
 
-    evhttp_send_reply(m_req, m_code, m_status.c_str(), m_body);
+    evhttp_send_reply(m_req, m_code, m_status.c_str(), evhttp_request_get_output_buffer(m_req));
     m_is_complete = true;
     return std::nullopt;
 }

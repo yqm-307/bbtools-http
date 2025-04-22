@@ -27,8 +27,9 @@ class Request;
 
 namespace detail
 {
-class HttpParser;
 class Context;
+class ReqParser;
+class RespParser;
 }
 
 enum emErr : core::errcode::ErrType

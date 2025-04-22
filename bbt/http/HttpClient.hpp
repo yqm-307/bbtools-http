@@ -5,9 +5,11 @@
 #include <event2/event.h>
 #include <memory>
 #include <bbt/core/buffer/Buffer.hpp>
-#include <bbt/http/detail/Define.hpp>
 #include <bbt/pollevent/Event.hpp>
 #include <bbt/pollevent/EvThread.hpp>
+#include <bbt/http/detail/Define.hpp>
+#include <bbt/http/detail/ReqParser.hpp>
+#include <bbt/http/detail/RespParser.hpp>
 
 namespace bbt::http
 {

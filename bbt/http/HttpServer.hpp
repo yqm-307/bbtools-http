@@ -1,9 +1,11 @@
 #pragma once
 #include <unordered_map>
 #include <atomic>
-#include <bbt/http/detail/Define.hpp>
 #include <bbt/pollevent/EvThread.hpp>
+#include <bbt/http/detail/Define.hpp>
 #include <bbt/http/detail/Context.hpp>
+#include <bbt/http/detail/ReqParser.hpp>
+#include <bbt/http/detail/RespParser.hpp>
 
 
 
@@ -80,6 +82,7 @@ private:
 
     std::mutex              m_all_opt_mtx;
     evhttp*                 m_http_server{NULL};
+    evhttp_bound_socket*    m_listen_fd{NULL};
     volatile bool           m_is_running{false};
     OnErrorCallback         m_onerr{nullptr};
     std::shared_ptr<pollevent::Event> m_send_reply_event{nullptr};

@@ -26,7 +26,7 @@ public:
 
     core::errcode::ErrOpt       SetOpt(emHttpOpt opt, ...);
     void                        SetResponseCallback(const ResponseCallback& cb);
-    core::errcode::ErrTuple<std::shared_ptr<detail::HttpParser>>
+    core::errcode::ErrTuple<std::shared_ptr<detail::RespParser>>
                                 Parse() const;
 
 private: // friend

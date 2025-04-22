@@ -23,3 +23,8 @@ target_link_libraries(client
     bbt_pollevent
     bbt_http
 )
+
+add_executable(parser parser.cc)
+target_link_libraries(parser
+    bbt_http
+)
